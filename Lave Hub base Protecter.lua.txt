@@ -1,0 +1,660 @@
+-- whitelist
+local allowed = {
+    "Younham03",
+}
+
+local me = game.Players.LocalPlayer
+
+local function canUse(plr)
+    for _, v in ipairs(allowed) do
+        if v == plr.Name then return true end
+    end
+    return false
+end
+
+if not canUse(me) then
+    me:Kick("You not whitelisted")
+end
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Stats = game:GetService("Stats")
+local CoreGui = game:GetService("CoreGui")
+local ws = game:GetService("Workspace")
+
+local lp = Players.LocalPlayer
+while not lp do task.wait() lp = Players.LocalPlayer end
+
+_G.dumpedandremakedbysaturday = {
+    Mode = "None",
+    BorderKick = false,
+    MyPlot = nil,
+    StealHitbox = nil,
+    CarpetSpammedPlayers = {},
+    AdminRemote = nil,
+    LastPunishTime = {},
+    TpProtector = false,
+    PlayerPositions = {},
+    TpProtectorCooldowns = {},
+}
+
+local core = _G.dumpedandremakedbysaturday
+
+local function fireAdmin(...)
+    if not core.AdminRemote then return end
+    local a = {...}
+    task.spawn(function()
+        core.AdminRemote:InvokeServer(unpack(a))
+    end)
+end
+
+local CARPET_ITEMS = {["Flying Carpet"] = true, ["Witch's Broom"] = true, ["Santa's Sleigh"] = true}
+
+function punishPlayer(p)
+    if not core.AdminRemote then return end
+    if not p or p == lp then return end
+    local char = p.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local uid = p.UserId
+    if core.LastPunishTime[uid] and tick() - core.LastPunishTime[uid] < 2 then return end
+    core.LastPunishTime[uid] = tick()
+    hrp.CFrame = CFrame.new(0, 10000, 0)
+
+    if core.Mode == "Kick" then
+        fireAdmin("f888ee6e-c86d-46e1-93d7-0639d6635d42", p, "balloon")
+        task.delay(0.3, function() lp:Kick("Best Base Protecter Lave Hub") end)
+    elseif core.Mode == "NoKick" then
+        fireAdmin("f888ee6e-c86d-46e1-93d7-0639d6635d42", p, "balloon")
+        fireAdmin("f888ee6e-c86d-46e1-93d7-0639d6635d42", p, "ragdoll")
+    end
+end
+
+local function findPlayerInHitbox()
+    local hitbox = core.StealHitbox
+    if not hitbox then return end
+    local cf = hitbox.CFrame
+    local size = hitbox.Size
+    local hx, hz = size.X * 0.5, size.Z * 0.5
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp then
+            local char = p.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local rel = cf:PointToObjectSpace(hrp.Position)
+                    if math.abs(rel.X) <= hx and math.abs(rel.Z) <= hz then
+                        for _, item in ipairs(char:GetChildren()) do
+                            if CARPET_ITEMS[item.Name] then
+                                punishPlayer(p)
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    if not lp.Character then lp.CharacterAdded:Wait() end
+    task.wait(0.01)
+
+    local net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net")
+    local children = net:GetChildren()
+    local byIdx = {}
+    local byName = {}
+    for i, obj in ipairs(children) do
+        byIdx[i] = obj
+        byName[obj.Name] = i
+    end
+
+    local anchorIdx = byName["RF/a0e78691-cb9b-4efc-ac08-9c06fea70059"]
+    if anchorIdx then
+        local actual = byIdx[anchorIdx + 1]
+        if actual then
+            core.AdminRemote = actual
+        end
+    end
+
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            obj.OnClientEvent:Connect(function(...)
+                if core.Mode == "None" or not core.AdminRemote or not core.MyPlot then return end
+                for _, a in ipairs({...}) do
+                    if type(a) == "string" and a:lower():find("stealing") then
+                        local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                        if not myHRP then return end
+                        local best, bestDist = nil, math.huge
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p ~= lp then
+                                local char = p.Character
+                                if char then
+                                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        local dist = (hrp.Position - myHRP.Position).Magnitude
+                                        if dist < bestDist then bestDist = dist best = p end
+                                    end
+                                end
+                            end
+                        end
+                        if best then punishPlayer(best) end
+                        return
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    if hookfunction and fireproximityprompt then
+        local old = fireproximityprompt
+        hookfunction(fireproximityprompt, newcclosure(function(prompt, ...)
+            if core.Mode ~= "None" then
+                local at = (prompt.ActionText or ""):lower()
+                local ot = (prompt.ObjectText or ""):lower()
+                if at:find("steal") or ot:find("steal") then
+                    local part = prompt.Parent
+                    if part and part:IsA("BasePart") then
+                        local pos = part.Position
+                        local best, bestD = nil, math.huge
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p ~= lp then
+                                local char = p.Character
+                                if char then
+                                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        local d = (hrp.Position - pos).Magnitude
+                                        if d < bestD then bestD = d best = p end
+                                    end
+                                end
+                            end
+                        end
+                        if best and bestD < 20 then punishPlayer(best) end
+                    end
+                    findPlayerInHitbox()
+                end
+            end
+            return old(prompt, ...)
+        end))
+    end
+    if hookfunction and newcclosure then
+        local oldFS = Instance.FireServer
+        hookfunction(Instance.FireServer, newcclosure(function(self, ...)
+            if core.Mode ~= "None" and core.StealHitbox then
+                findPlayerInHitbox()
+            end
+            return oldFS(self, ...)
+        end))
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.01) do
+        local plots = ws:FindFirstChild("Plots")
+        if plots and not core.MyPlot then
+            for _, p in ipairs(plots:GetChildren()) do
+                local sign = p:FindFirstChild("PlotSign")
+                if sign then
+                    local lbl = sign:FindFirstChild("TextLabel", true)
+                    if lbl then
+                        local t = lbl.Text:lower()
+                        if t:find(lp.Name:lower()) or t:find(lp.DisplayName:lower()) then
+                            core.MyPlot = p
+                            core.StealHitbox = p:FindFirstChild("StealHitbox", true)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not core.TpProtector then continue end
+        local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if not myHRP then continue end
+        core.PlayerPositions[lp.UserId] = myHRP.Position
+    end
+end)
+
+if CoreGui:FindFirstChild("LaveHubGui") then
+    CoreGui["LaveHubGui"]:Destroy()
+end
+
+local topGui = Instance.new("ScreenGui")
+topGui.Name = "LaveHubGui"
+topGui.ResetOnSpawn = false
+topGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+topGui.Parent = CoreGui
+
+local topOuterBorder = Instance.new("Frame")
+topOuterBorder.Size = UDim2.new(0, 376, 0, 104)
+topOuterBorder.Position = UDim2.new(0.5, 0, 0, 3)
+topOuterBorder.AnchorPoint = Vector2.new(0.5, 0)
+topOuterBorder.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
+topOuterBorder.BorderSizePixel = 0
+topOuterBorder.ZIndex = 1
+topOuterBorder.Parent = topGui
+Instance.new("UICorner", topOuterBorder).CornerRadius = UDim.new(0, 24)
+
+local topOuterGradient = Instance.new("UIGradient")
+topOuterGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.15, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.30, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.60, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(220, 0, 0)),
+})
+topOuterGradient.Parent = topOuterBorder
+
+task.spawn(function()
+    while task.wait() do
+        for i = 0, 360, 2 do
+            topOuterGradient.Rotation = i
+            task.wait(0.01)
+        end
+    end
+end)
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 360, 0, 90)
+MainFrame.Position = UDim2.new(0.5, 0, 0, 10)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 0
+MainFrame.ZIndex = 2
+MainFrame.Parent = topGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 20)
+
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Thickness = 2.5
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local BorderGradient = Instance.new("UIGradient")
+BorderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.15, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.30, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.60, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(220, 0, 0)),
+})
+BorderGradient.Parent = UIStroke
+
+task.spawn(function()
+    while task.wait() do
+        for i = 0, 360, 2 do
+            BorderGradient.Rotation = i
+            task.wait(0.01)
+        end
+    end
+end)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Position = UDim2.new(0, 0, 0, 8)
+Title.BackgroundTransparency = 1
+Title.Text = "LAVE HUB"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 26
+Title.ZIndex = 3
+Title.Parent = MainFrame
+
+local TextGradient = Instance.new("UIGradient")
+TextGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(150, 0, 0)),
+    ColorSequenceKeypoint.new(0.2, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 0, 0)),
+    ColorSequenceKeypoint.new(0.8, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(150, 0, 0)),
+})
+TextGradient.Parent = Title
+
+task.spawn(function()
+    while true do
+        TextGradient.Offset = Vector2.new(-1, 0)
+        local anim = TweenService:Create(TextGradient, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+        anim:Play()
+        anim.Completed:Wait()
+        task.wait(0.2)
+    end
+end)
+
+local StatsLabel = Instance.new("TextLabel")
+StatsLabel.Size = UDim2.new(1, 0, 0, 20)
+StatsLabel.Position = UDim2.new(0, 0, 0, 44)
+StatsLabel.BackgroundTransparency = 1
+StatsLabel.Text = "FPS: 0  |  PING: 0ms"
+StatsLabel.TextColor3 = Color3.fromRGB(220, 0, 0)
+StatsLabel.Font = Enum.Font.GothamMedium
+StatsLabel.TextSize = 13
+StatsLabel.ZIndex = 3
+StatsLabel.Parent = MainFrame
+
+local StatsGradient = Instance.new("UIGradient")
+StatsGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(150, 0, 0)),
+    ColorSequenceKeypoint.new(0.2, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 0, 0)),
+    ColorSequenceKeypoint.new(0.8, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(150, 0, 0)),
+})
+StatsGradient.Parent = StatsLabel
+
+task.spawn(function()
+    while true do
+        StatsGradient.Offset = Vector2.new(-1, 0)
+        local anim = TweenService:Create(StatsGradient, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+        anim:Play()
+        anim.Completed:Wait()
+        task.wait(0.2)
+    end
+end)
+
+local Subtext = Instance.new("TextLabel")
+Subtext.Size = UDim2.new(1, 0, 0, 20)
+Subtext.Position = UDim2.new(0, 0, 0, 66)
+Subtext.BackgroundTransparency = 1
+Subtext.Text = "discord.gg/kq42JYQuj"
+Subtext.TextColor3 = Color3.fromRGB(220, 0, 0)
+Subtext.Font = Enum.Font.Gotham
+Subtext.TextSize = 13
+Subtext.ZIndex = 3
+Subtext.Parent = MainFrame
+
+local SubGradient = Instance.new("UIGradient")
+SubGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(150, 0, 0)),
+    ColorSequenceKeypoint.new(0.2, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 0, 0)),
+    ColorSequenceKeypoint.new(0.8, Color3.fromRGB(220, 50, 50)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(150, 0, 0)),
+})
+SubGradient.Parent = Subtext
+
+task.spawn(function()
+    while true do
+        SubGradient.Offset = Vector2.new(-1, 0)
+        local anim = TweenService:Create(SubGradient, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+        anim:Play()
+        anim.Completed:Wait()
+        task.wait(0.2)
+    end
+end)
+
+local fpsBuffer = {}
+RunService.RenderStepped:Connect(function(dt)
+    table.insert(fpsBuffer, 1 / dt)
+    if #fpsBuffer > 30 then table.remove(fpsBuffer, 1) end
+    local avg = 0
+    for _, v in ipairs(fpsBuffer) do avg = avg + v end
+    avg = math.floor(avg / #fpsBuffer)
+    local ok, ping = pcall(function()
+        return math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+    end)
+    StatsLabel.Text = string.format("FPS: %d  |  PING: %s", avg, ok and tostring(ping).."ms" or "--")
+end)
+
+if CoreGui:FindFirstChild("BaseProtectorV3") then
+    CoreGui.BaseProtectorV3:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BaseProtectorV3"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = CoreGui
+
+local outerBorder = Instance.new("Frame")
+outerBorder.Size = UDim2.new(0, 268, 0, 238)
+outerBorder.Position = UDim2.new(1, -274, 0, 16)
+outerBorder.BackgroundColor3 = Color3.fromRGB(220, 0, 0)
+outerBorder.BorderSizePixel = 0
+outerBorder.ZIndex = 1
+outerBorder.Active = true
+outerBorder.Draggable = true
+outerBorder.Parent = screenGui
+Instance.new("UICorner", outerBorder).CornerRadius = UDim.new(0, 14)
+
+local outerGradient = Instance.new("UIGradient")
+outerGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.15, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.30, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.60, Color3.fromRGB(220, 0, 0)),
+    ColorSequenceKeypoint.new(0.75, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(220, 0, 0)),
+})
+outerGradient.Parent = outerBorder
+
+task.spawn(function()
+    while task.wait() do
+        for i = 0, 360, 2 do
+            outerGradient.Rotation = i
+            task.wait(0.01)
+        end
+    end
+end)
+
+local controlPanel = Instance.new("Frame")
+controlPanel.Name = "ControlPanel"
+controlPanel.Size = UDim2.new(0, 260, 0, 230)
+controlPanel.Position = UDim2.new(0, 4, 0, 4)
+controlPanel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+controlPanel.BackgroundTransparency = 0.15
+controlPanel.BorderSizePixel = 0
+controlPanel.ZIndex = 2
+controlPanel.Parent = outerBorder
+Instance.new("UICorner", controlPanel).CornerRadius = UDim.new(0, 10)
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 3
+titleBar.Parent = controlPanel
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+
+local panelTitle = Instance.new("TextLabel")
+panelTitle.Size = UDim2.new(1, -70, 0, 40)
+panelTitle.Position = UDim2.new(0, 15, 0, 0)
+panelTitle.BackgroundTransparency = 1
+panelTitle.Text = "Lave Hub Protecter"
+panelTitle.TextColor3 = Color3.fromRGB(255, 0, 0)
+panelTitle.TextSize = 16
+panelTitle.Font = Enum.Font.GothamBold
+panelTitle.TextXAlignment = Enum.TextXAlignment.Left
+panelTitle.ZIndex = 3
+panelTitle.Parent = titleBar
+
+local minimizeButton = Instance.new("TextButton")
+minimizeButton.Size = UDim2.new(0, 28, 0, 28)
+minimizeButton.Position = UDim2.new(1, -64, 0, 6)
+minimizeButton.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+minimizeButton.Text = "─"
+minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeButton.ZIndex = 3
+minimizeButton.Parent = titleBar
+Instance.new("UICorner", minimizeButton).CornerRadius = UDim.new(0, 6)
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 28, 0, 28)
+closeButton.Position = UDim2.new(1, -32, 0, 6)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.Text = "×"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 20
+closeButton.ZIndex = 3
+closeButton.Parent = titleBar
+Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 6)
+
+local contentContainer = Instance.new("Frame")
+contentContainer.Size = UDim2.new(1, -20, 1, -60)
+contentContainer.Position = UDim2.new(0, 10, 0, 50)
+contentContainer.BackgroundTransparency = 1
+contentContainer.ZIndex = 3
+contentContainer.Parent = controlPanel
+
+local isMinimized = false
+
+local function createToggleButton(text, yPos, enabled, onColor)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 50)
+    button.Position = UDim2.new(0, 0, 0, yPos)
+    button.BackgroundColor3 = Color3.fromRGB(15, 0, 0)
+    button.Text = ""
+    button.AutoButtonColor = false
+    button.ZIndex = 4
+    button.Parent = contentContainer
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Color = enabled and onColor or Color3.fromRGB(60, 0, 0)
+    btnStroke.Thickness = 1.5
+    btnStroke.Parent = button
+
+    local btnGradient = Instance.new("UIGradient")
+    btnGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 0, 0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 0, 0)),
+    })
+    btnGradient.Rotation = 90
+    btnGradient.Parent = button
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.Position = UDim2.new(0, 12, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = enabled and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(180, 60, 60)
+    label.TextSize = 11
+    label.Font = Enum.Font.GothamBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextWrapped = true
+    label.ZIndex = 4
+    label.Parent = button
+
+    local switchBG = Instance.new("Frame")
+    switchBG.Size = UDim2.new(0, 42, 0, 22)
+    switchBG.Position = UDim2.new(1, -50, 0.5, -11)
+    switchBG.BackgroundColor3 = enabled and onColor or Color3.fromRGB(40, 0, 0)
+    switchBG.ZIndex = 4
+    switchBG.Parent = button
+    Instance.new("UICorner", switchBG).CornerRadius = UDim.new(1, 0)
+
+    local slider = Instance.new("Frame")
+    slider.Size = UDim2.new(0, 16, 0, 16)
+    slider.Position = enabled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    slider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    slider.ZIndex = 5
+    slider.Parent = switchBG
+    Instance.new("UICorner", slider).CornerRadius = UDim.new(1, 0)
+
+    return button, btnStroke, switchBG, slider, onColor, label, btnGradient
+end
+
+local function applyToggle(state, stroke, bg, slider, label, onColor, btnGradient)
+    local ti = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(stroke, ti, {Color = state and onColor or Color3.fromRGB(60, 0, 0)}):Play()
+    TweenService:Create(bg, ti, {BackgroundColor3 = state and onColor or Color3.fromRGB(40, 0, 0)}):Play()
+    TweenService:Create(slider, ti, {Position = state and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)}):Play()
+    TweenService:Create(label, ti, {TextColor3 = state and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(180, 60, 60)}):Play()
+    if state then
+        btnGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 0)),
+        })
+    else
+        btnGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 0, 0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 0, 0)),
+        })
+    end
+end
+
+local spamKickBtn, spamKickStroke, spamKickBG, spamKickSlider, spamKickColor, spamKickLabel, spamKickGrad =
+    createToggleButton("SPAM IF STEALING (KICK)", 0, false, Color3.fromRGB(255, 0, 0))
+
+local spamNoKickBtn, spamNoKickStroke, spamNoKickBG, spamNoKickSlider, spamNoKickColor, spamNoKickLabel, spamNoKickGrad =
+    createToggleButton("SPAM IF STEALING (NO KICK)", 58, false, Color3.fromRGB(200, 50, 50))
+
+local antiTPBtn, antiTPStroke, antiTPBG, antiTPSlider, antiTPColor, antiTPLabel, antiTPGrad =
+    createToggleButton("ANTI-TP SCAM", 116, false, Color3.fromRGB(255, 80, 80))
+
+spamKickBtn.MouseButton1Click:Connect(function()
+    core.Mode = core.Mode ~= "Kick" and "Kick" or "None"
+    applyToggle(core.Mode == "Kick", spamKickStroke, spamKickBG, spamKickSlider, spamKickLabel, spamKickColor, spamKickGrad)
+end)
+
+spamNoKickBtn.MouseButton1Click:Connect(function()
+    core.Mode = core.Mode ~= "NoKick" and "NoKick" or "None"
+    applyToggle(core.Mode == "NoKick", spamNoKickStroke, spamNoKickBG, spamNoKickSlider, spamNoKickLabel, spamNoKickColor, spamNoKickGrad)
+end)
+
+antiTPBtn.MouseButton1Click:Connect(function()
+    core.TpProtector = not core.TpProtector
+    applyToggle(core.TpProtector, antiTPStroke, antiTPBG, antiTPSlider, antiTPLabel, antiTPColor, antiTPGrad)
+    if core.TpProtector then
+        local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then core.PlayerPositions[lp.UserId] = myHRP.Position end
+        task.spawn(function()
+            while core.TpProtector and task.wait(0.05) do
+                local char = lp.Character
+                if not char then continue end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then continue end
+                local savedPos = core.PlayerPositions[lp.UserId]
+                if not savedPos then
+                    core.PlayerPositions[lp.UserId] = hrp.Position
+                    continue
+                end
+                if (hrp.Position - savedPos).Magnitude > 200 then
+                    hrp.CFrame = CFrame.new(savedPos)
+                else
+                    core.PlayerPositions[lp.UserId] = hrp.Position
+                end
+            end
+        end)
+    end
+end)
+
+minimizeButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    local ti = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    if isMinimized then
+        TweenService:Create(controlPanel, ti, {Size = UDim2.new(0, 260, 0, 40)}):Play()
+        TweenService:Create(outerBorder, ti, {Size = UDim2.new(0, 268, 0, 48)}):Play()
+        minimizeButton.Text = "□"
+        contentContainer.Visible = false
+    else
+        TweenService:Create(controlPanel, ti, {Size = UDim2.new(0, 260, 0, 230)}):Play()
+        TweenService:Create(outerBorder, ti, {Size = UDim2.new(0, 268, 0, 238)}):Play()
+        minimizeButton.Text = "─"
+        contentContainer.Visible = true
+    end
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+end)
+
+print("Lave Hub loaded")
